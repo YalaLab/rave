@@ -17,6 +17,7 @@ from .thread_parallel import thread_parallel_map
 import pandas as pd
 
 from ..input.series_paths_loader import SeriesPathsLoader
+from ..utils.s3_utils import is_s3_url, materialize_s3_to_local
 from ..processing.ct_processor import CTProcessor
 from ..processing.xray_processor import XRayProcessor
 from ..processing.mammogram_processor import MammogramProcessor
@@ -109,6 +110,42 @@ class VisionPipeline:
         logger.info("Step 1: Loading series list from CSV...")
         series_list = self.input_handler.get_series_list(input_path)
         logger.info(f"Loaded {len(series_list)} series")
+
+        # Optional S3 prefetch/materialization
+        prefetch_mode = (getattr(self.config, "s3_prefetch", "off") or "off").lower()
+        if prefetch_mode not in {"off", "eager", "lazy", "only"}:
+            raise VisionEngineError(f"Invalid s3_prefetch mode: {prefetch_mode}")
+
+        if prefetch_mode in {"eager", "only"}:
+            logger.info(f"S3 prefetch mode: {prefetch_mode} (materializing inputs)")
+            for s in series_list:
+                try:
+                    src = s.get_dicom_path()
+                except Exception:
+                    # If something odd happens, skip prefetch for this series and let processing fail loudly.
+                    continue
+                if is_s3_url(src):
+                    local_path, _kind = materialize_s3_to_local(
+                        src,
+                        cache_dir=getattr(self.config, "s3_cache_dir", None),
+                        endpoint_url=getattr(self.config, "s3_endpoint_url", None),
+                        region_name=getattr(self.config, "s3_region", None),
+                    )
+                    # Preserve original source path for mapping/debugging
+                    s._original_direct_path = src  # type: ignore[attr-defined]
+                    s._direct_path = local_path  # type: ignore[attr-defined]
+
+            if prefetch_mode == "only":
+                logger.info("S3 prefetch-only mode: completed downloads; exiting without processing.")
+                return {
+                    "total_series": len(series_list),
+                    "processed_successfully": 0,
+                    "failed_series": 0,
+                    "output_directory": output_dir,
+                    "export_results": [],
+                    "failed_details": [],
+                    "mapping_file": None,
+                }
 
         # Apply debug mode limiting
         if self.config.debug_mode:
@@ -264,7 +301,7 @@ class VisionPipeline:
             # Only include successfully processed series
             if export_result:
                 # Get source path
-                source_path = series.get_dicom_path()
+                source_path = getattr(series, "_original_direct_path", None) or series.get_dicom_path()
 
                 # Prefer the actual output path reported by exporter (handles masks and unarchived video)
                 actual_output_path = getattr(export_result, "output_path", None)
@@ -319,6 +356,23 @@ def _process_series_to_tarball(task) -> ExportResult:
         from pathlib import Path
 
         config = Config(**config_dict)
+
+        # Optional S3 materialization in worker (lazy mode)
+        prefetch_mode = (getattr(config, "s3_prefetch", "off") or "off").lower()
+        if prefetch_mode == "lazy":
+            try:
+                src = series_info.get_dicom_path()
+            except Exception:
+                src = None
+            if src and is_s3_url(src):
+                local_path, _kind = materialize_s3_to_local(
+                    src,
+                    cache_dir=getattr(config, "s3_cache_dir", None),
+                    endpoint_url=getattr(config, "s3_endpoint_url", None),
+                    region_name=getattr(config, "s3_region", None),
+                )
+                series_info._original_direct_path = src  # type: ignore[attr-defined]
+                series_info._direct_path = local_path  # type: ignore[attr-defined]
 
         # Get the appropriate processor and exporter
         processor_class = get_processor_class(config.modality)

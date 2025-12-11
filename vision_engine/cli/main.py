@@ -77,6 +77,38 @@ Examples:
     )
 
     process_parser.add_argument(
+        "--s3-prefetch",
+        type=str,
+        default="off",
+        choices=["off", "eager", "lazy", "only"],
+        help=(
+            "How to handle s3:// series paths. "
+            "'off' (default): no downloads; "
+            "'eager': download all inputs to local cache then process; "
+            "'lazy': download per-series inside workers; "
+            "'only': download all inputs then exit."
+        ),
+    )
+    process_parser.add_argument(
+        "--s3-cache-dir",
+        type=str,
+        default=None,
+        help="Local directory for caching S3 downloads (default: ~/.cache/vision-engine/s3).",
+    )
+    process_parser.add_argument(
+        "--s3-endpoint-url",
+        type=str,
+        default=None,
+        help="Optional S3 endpoint URL (useful for S3-compatible stores).",
+    )
+    process_parser.add_argument(
+        "--s3-region",
+        type=str,
+        default=None,
+        help="Optional AWS region override for S3 client (otherwise uses default resolution).",
+    )
+
+    process_parser.add_argument(
         "--stop-on-error", action="store_true", help="Stop pipeline on first error"
     )
     process_parser.add_argument(
@@ -118,6 +150,10 @@ def process_command(args):
             "dry_run": args.dry_run,
             "debug_mode": args.debug,
             "debug_limit": args.debug_limit,
+            "s3_prefetch": args.s3_prefetch,
+            "s3_cache_dir": args.s3_cache_dir,
+            "s3_endpoint_url": args.s3_endpoint_url,
+            "s3_region": args.s3_region,
         }
 
         config = Config.from_cli_args(cli_args, args.config)

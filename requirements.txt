@@ -19,6 +19,9 @@ matplotlib>=3.5.0
 # CLI and utilities
 tqdm>=4.62.0
 
+# Optional: S3 input support (for s3://... paths)
+boto3>=1.28.0
+
 # Development and testing (optional)
 pytest>=6.0.0
 pytest-cov>=2.12.0 

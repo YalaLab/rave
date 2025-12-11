@@ -42,6 +42,16 @@ class Config:
     debug_max_series: int = 10
     dry_run: bool = False
 
+    # Optional S3 input materialization
+    # - off: do not download; S3 paths will likely fail in processors
+    # - eager: download all S3 paths up front, then process
+    # - lazy: download per-series inside workers (on demand)
+    # - only: download all S3 paths then exit (no processing)
+    s3_prefetch: str = "off"
+    s3_cache_dir: Optional[str] = None
+    s3_endpoint_url: Optional[str] = None
+    s3_region: Optional[str] = None
+
     def __post_init__(self):
         """Post-initialization processing"""
         # Normalize modality
@@ -193,6 +203,10 @@ class Config:
             "debug_mode",
             "dry_run",
             "overwrite",
+            "s3_prefetch",
+            "s3_cache_dir",
+            "s3_endpoint_url",
+            "s3_region",
         ]
 
         for field_name in runtime_fields:
@@ -224,4 +238,10 @@ class Config:
             "stop_on_error": self.stop_on_error,
             "debug_mode": self.debug_mode,
             "debug_max_series": self.debug_max_series,
+            "dry_run": self.dry_run,
+            "overwrite": self.overwrite,
+            "s3_prefetch": self.s3_prefetch,
+            "s3_cache_dir": self.s3_cache_dir,
+            "s3_endpoint_url": self.s3_endpoint_url,
+            "s3_region": self.s3_region,
         }

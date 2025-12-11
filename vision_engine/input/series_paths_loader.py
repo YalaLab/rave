@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ..core.data_structures import SeriesInfo
 from ..core.exceptions import InputError
+from ..utils.s3_utils import is_s3_url
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,11 @@ class SeriesPathsLoader:
             try:
                 series_path = str(row[path_column])
 
-                # Validate path exists
-                if not os.path.exists(series_path):
-                    logger.warning(f"Series path not found, skipping: {series_path}")
-                    continue
+                # Validate path exists (local only). For s3://..., defer validation to prefetch/processing.
+                if not is_s3_url(series_path):
+                    if not os.path.exists(series_path):
+                        logger.warning(f"Series path not found, skipping: {series_path}")
+                        continue
 
                 # Extract series UID from path (last component)
                 series_uid = os.path.basename(series_path.rstrip("/"))
@@ -101,41 +103,46 @@ class SeriesPathsLoader:
                 )
 
                 # Check if this is a NIfTI file or directory with medical images
-                path_obj = Path(series_path)
-
-                if path_obj.is_file() and path_obj.suffix in [".nii", ".gz"]:
-                    # This is a NIfTI file
-                    slice_count = 1  # NIfTI files are single volumes
-                    logger.debug(f"Detected NIfTI file: {series_path}")
-                elif path_obj.is_dir():
-                    # Check for NIfTI files in directory
-                    nifti_files = list(path_obj.glob("*.nii")) + list(
-                        path_obj.glob("*.nii.gz")
-                    )
-                    if nifti_files:
-                        slice_count = len(nifti_files)
-                        logger.debug(
-                            f"Found {slice_count} NIfTI files in {series_path}"
-                        )
-                    else:
-                        # Count DICOM files in directory
-                        dicom_files = [
-                            f
-                            for f in os.listdir(series_path)
-                            if f.endswith((".dcm", ".DCM")) or f.isdigit()
-                        ]
-                        slice_count = len(dicom_files)
-
-                        if slice_count == 0:
-                            logger.warning(
-                                f"No medical image files found in {series_path}, skipping"
-                            )
-                            continue
+                if is_s3_url(series_path):
+                    # We can't efficiently inspect remote contents here without downloading.
+                    # Defer counting/validation to prefetch/processing.
+                    slice_count = 0
                 else:
-                    logger.warning(
-                        f"Unknown file type or missing path: {series_path}, skipping"
-                    )
-                    continue
+                    path_obj = Path(series_path)
+
+                    if path_obj.is_file() and path_obj.suffix in [".nii", ".gz"]:
+                        # This is a NIfTI file
+                        slice_count = 1  # NIfTI files are single volumes
+                        logger.debug(f"Detected NIfTI file: {series_path}")
+                    elif path_obj.is_dir():
+                        # Check for NIfTI files in directory
+                        nifti_files = list(path_obj.glob("*.nii")) + list(
+                            path_obj.glob("*.nii.gz")
+                        )
+                        if nifti_files:
+                            slice_count = len(nifti_files)
+                            logger.debug(
+                                f"Found {slice_count} NIfTI files in {series_path}"
+                            )
+                        else:
+                            # Count DICOM files in directory
+                            dicom_files = [
+                                f
+                                for f in os.listdir(series_path)
+                                if f.endswith((".dcm", ".DCM")) or f.isdigit()
+                            ]
+                            slice_count = len(dicom_files)
+
+                            if slice_count == 0:
+                                logger.warning(
+                                    f"No medical image files found in {series_path}, skipping"
+                                )
+                                continue
+                    else:
+                        logger.warning(
+                            f"Unknown file type or missing path: {series_path}, skipping"
+                        )
+                        continue
 
                 # Extract study path (parent of series directory)
                 study_path = os.path.dirname(series_path)
