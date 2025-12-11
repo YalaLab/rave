@@ -7,9 +7,9 @@ anatomy: abdomen
 # Modality-specific processing settings
 processing:
   crop_pad:
-    size: [384, 384]  # Target size (H, W) - crop or pad to this
+    size: [512, 512]  # Target size (H, W) - crop or pad to this
   resampling:
-    target_spacing: [1.5, 1.5, 1.5]  # Standard abdomen CT spacing (x, y, z in mm)
+    target_spacing: [1.25, 1.25, 1.25]  # Standard abdomen CT spacing (x, y, z in mm)
   conversion_backend: "sitk"
   # Slice selection - automatically select middle slices
   slice_selection:
