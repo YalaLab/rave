@@ -7,14 +7,14 @@ anatomy: chest
 # Modality-specific processing settings
 processing:
   crop_pad:
-    size: [256, 256]  # Target size (H, W) - crop or pad to this
+    size: [512, 512]  # Target size (H, W) - crop or pad to this
   resampling:
     target_spacing: [1.25, 1.25, 1.25]  # Standard chest CT spacing (x, y, z in mm)
   conversion_backend: "sitk"
   # Slice selection - automatically select middle slices
   slice_selection:
     enabled: true
-    slices: 256 # Select middle 256 slices for chest CT
+    slices: 2048 # Select middle 256 slices for chest CT
 
 # External exporter configuration
 # Use one of: lz4_fast, video_hevc

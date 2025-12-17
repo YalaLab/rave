@@ -14,7 +14,7 @@ processing:
   # Slice selection - automatically select middle slices
   slice_selection:
     enabled: true
-    slices: 128  # Select middle 128 slices for brain CT
+    slices: 2048  # Select middle 128 slices for brain CT
 
 # External exporter configuration
 # Use one of: lz4_fast, video_hevc
