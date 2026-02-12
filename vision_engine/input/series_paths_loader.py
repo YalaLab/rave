@@ -7,6 +7,7 @@ import logging
 import os
 from typing import List
 from pathlib import Path
+from tqdm import tqdm
 
 from ..core.data_structures import SeriesInfo
 from ..core.exceptions import InputError
@@ -61,7 +62,7 @@ class SeriesPathsLoader:
         series_list = []
         path_column = getattr(self.config, "path_column", "series_path")
 
-        for idx, row in df.iterrows():
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc='Gathering series info'):
             try:
                 series_path = str(row[path_column])
 
