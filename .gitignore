@@ -91,3 +91,7 @@ merlin_cache_1.5mm
 rve_manifest.csv
 *_ignored*
 
+
+# unit tests live in tests/ (the test_*.py rule above is for scratch scripts)
+!tests/
+!tests/test_*.py

@@ -10,6 +10,8 @@ processing:
     size: [384, 384]  # Higher resolution for breast MR (H, W) - crop or pad to this
   resampling:
     target_spacing: [1, 1, 1.0]  # Higher resolution spacing for breast MR (x, y, z in mm)
+  # Patient pose of the exported volume (see README "Output orientation"); null disables
+  orientation: LPI
   conversion_backend: "sitk"
   # Slice selection - automatically select middle slices
   slice_selection:

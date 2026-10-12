@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from ..core.data_structures import SeriesInfo, ProcessedSeries
 from ..core.exceptions import ProcessingError
 from .base_processor import BaseProcessor
+from .orientation import OrientationInfo, orient_to_canonical, orientation_target_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ class CTProcessor(BaseProcessor):
     def __init__(self, config):
         super().__init__(config)
         self.anatomy = config.anatomy
+        self.orientation_target = orientation_target_from_config(config.processing)
+        self._last_orientation: Optional[OrientationInfo] = None
 
     def process_series(self, series_info: SeriesInfo) -> ProcessedSeries:
         """Complete processing pipeline for one CT series"""
@@ -58,6 +61,9 @@ class CTProcessor(BaseProcessor):
                 "crop_pad_target": target_size,
                 "slice_count": processed_volume.shape[0],
                 "value_range": "raw_hounsfield_units",
+                "orientation": self._last_orientation.to_dict()
+                if self._last_orientation is not None
+                else None,
                 "series_uid": series_info.series_uid,
                 "slice_info": getattr(
                     series_info, "slice_info", []
@@ -177,6 +183,12 @@ class CTProcessor(BaseProcessor):
 
         if target_spacing:
             sitk_image = self._resample_volume(sitk_image, target_spacing)
+
+        # Put every input (DICOM or NIfTI) in the same patient pose before the
+        # array is extracted; see orientation.py for why this matters.
+        sitk_image, self._last_orientation = orient_to_canonical(
+            sitk_image, self.orientation_target
+        )
 
         # Convert to numpy array after resampling
         volume = sitk.GetArrayFromImage(sitk_image)  # Shape: (Z, Y, X)
