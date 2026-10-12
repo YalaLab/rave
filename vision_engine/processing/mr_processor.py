@@ -18,6 +18,7 @@ import torch.nn.functional as F
 from ..core.data_structures import SeriesInfo, ProcessedSeries
 from ..core.exceptions import ProcessingError
 from .base_processor import BaseProcessor
+from .orientation import OrientationInfo, orient_to_canonical, orientation_target_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class MRProcessor(BaseProcessor):
         self._last_resample_shape: Optional[Tuple[int, int, int]] = None
         # Tracks mask detection result for the most recently processed series
         self._last_is_mask: Optional[bool] = None
+        self.orientation_target = orientation_target_from_config(config.processing)
+        self._last_orientation: Optional[OrientationInfo] = None
 
     def process_series(self, series_info: SeriesInfo) -> ProcessedSeries:
         """Complete processing pipeline for one MR series"""
@@ -65,6 +68,9 @@ class MRProcessor(BaseProcessor):
                 "crop_pad_target": target_size,
                 "slice_count": processed_volume.shape[0],
                 "value_range": "raw_signal_intensity",  # MR uses signal intensity, not HU
+                "orientation": self._last_orientation.to_dict()
+                if self._last_orientation is not None
+                else None,
                 "series_instance_uid": series_info.series_uid,
                 "slice_info": getattr(
                     series_info, "slice_info", []
@@ -214,6 +220,12 @@ class MRProcessor(BaseProcessor):
                 logger.info(f"Saved intermediate resampled NIfTI: {out_path}")
             except Exception as e:
                 logger.warning(f"Failed to save intermediate NIfTI: {e}")
+
+        # Put every input (DICOM or NIfTI) in the same patient pose before the
+        # array is extracted; a label volume permutes/flips the same way.
+        sitk_image, self._last_orientation = orient_to_canonical(
+            sitk_image, self.orientation_target
+        )
 
         # Convert to numpy array after resampling
         volume = sitk.GetArrayFromImage(sitk_image)  # Shape: (Z, Y, X)

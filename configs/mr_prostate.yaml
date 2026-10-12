@@ -10,6 +10,8 @@ processing:
     - 0.2
     - 0.2
     - 3.0
+  # Patient pose of the exported volume (see README "Output orientation"); null disables
+  orientation: LPI
   conversion_backend: sitk
   slice_selection:
     enabled: true

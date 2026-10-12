@@ -10,6 +10,8 @@ processing:
     size: [384, 384]  # Target size (H, W) - crop or pad to this
   resampling:
     target_spacing: [1.25, 1.25, 1.25]  # Standard abdomen CT spacing (x, y, z in mm)
+  # Patient pose of the exported volume (see README "Output orientation"); null disables
+  orientation: LPI
   conversion_backend: "sitk"
   # Slice selection - automatically select middle slices
   slice_selection:

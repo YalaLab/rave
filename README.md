@@ -159,6 +159,34 @@ processing:
 exporter_config: "configs/exporters/video_hevc.yaml"
 ```
 
+## Output orientation
+
+Every 3D volume (CT and MR, DICOM or NIfTI) is reoriented to one patient pose
+before export, so models see the same anatomy layout regardless of how the
+source was stored. The default pose is `LPI`:
+
+- column index increases toward the patient's **L**eft (radiological view: the
+  patient's left is on the right of the image),
+- row index increases toward **P**osterior (spine at the bottom of the frame),
+- slice index increases toward **I**nferior (slice 0 is the most cranial; a
+  chest CT starts near the clavicles and ends in the upper abdomen).
+
+This is a pure axis permutation/flip with no resampling. A DICOM axial series
+is usually already in this pose; a NIfTI stored in RAS is reversed on all three
+axes and is fixed here, so no `flip` is needed in a training loader. The
+applied transform is recorded in `metadata.json` under
+`processing_metadata.orientation` (`input`, `output`, `reoriented`).
+
+```yaml
+processing:
+  orientation: LPI   # any 3-letter code such as RAS; null disables reorientation
+```
+
+Set `orientation: null` only to reproduce caches built before this step
+existed. The reorientation trusts the direction matrix: a NIfTI whose affine
+contradicts its pixels, or a DICOM series without usable
+`ImagePositionPatient`, cannot be detected here.
+
 ## Python API Reference
 
 ### Loading Data
